@@ -1,7 +1,9 @@
 package main
 
 import (
+	"go.uber.org/zap"
 	"log"
+	"module4-task1/internal/logger"
 	"net"
 	"os"
 
@@ -18,7 +20,7 @@ func main() {
 	// Получаем DSN из переменной окружения или укажи напрямую
 	dsn := os.Getenv("POSTGRES_DSN")
 	if dsn == "" {
-		dsn = "postgres://anton:secret@localhost:5432/users?sslmode=disable"
+		log.Fatal("POSTGRES_DSN environment variable not set")
 	}
 
 	// Подключаемся к БД
@@ -47,8 +49,8 @@ func main() {
 
 	reflection.Register(grpcServer)
 
-	log.Println("Starting gRPC server on :50051...")
+	logger.Log.Info("Starting server")
 	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+		logger.Log.Fatal("Error starting server", zap.Error(err))
 	}
 }
