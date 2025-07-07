@@ -1,37 +1,39 @@
 package main
 
 import (
-	"context"
 	"log"
-	auth2 "module4-task1/internal/api/proto/auth"
 	"net"
+	"os"
+
+	"module4-task1/internal/api"
+	auth2 "module4-task1/internal/api/proto/auth"
+	"module4-task1/internal/repo"
+	"module4-task1/internal/service"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
-// Реализация сервера
-type authServer struct {
-	auth2.UnimplementedAuthServiceServer
-}
-
-// Реализация метода Register
-func (s *authServer) Register(ctx context.Context, req *auth2.RegisterRequest) (*auth2.RegisterResponse, error) {
-	log.Printf("Register called with username: %s", req.GetUsername())
-	return &auth2.RegisterResponse{
-		Message: "User " + req.GetUsername() + " registered successfully",
-	}, nil
-}
-
-// Реализация метода Login
-func (s *authServer) Login(ctx context.Context, req *auth2.LoginRequest) (*auth2.LoginResponse, error) {
-	log.Printf("Login called with username: %s", req.GetUsername())
-	return &auth2.LoginResponse{
-		Token: "fake-jwt-token-for-" + req.GetUsername(),
-	}, nil
-}
-
 func main() {
+	// Получаем DSN из переменной окружения или укажи напрямую
+	dsn := os.Getenv("POSTGRES_DSN")
+	if dsn == "" {
+		dsn = "postgres://anton:secret@localhost:5432/users?sslmode=disable"
+	}
+
+	// Подключаемся к БД
+	db, err := repo.NewPostgres(dsn)
+	if err != nil {
+		log.Fatalf("failed to connect to db: %v", err)
+	}
+
+	// Создаём репозиторий пользователей
+	userRepo := repo.NewUserRepository(db)
+
+	// Создаём сервис аутентификации
+	authService := service.NewAuthService(userRepo)
+
+	// Настраиваем gRPC сервер
 	lis, err := net.Listen("tcp", ":50051")
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
@@ -39,7 +41,9 @@ func main() {
 
 	grpcServer := grpc.NewServer()
 
-	auth2.RegisterAuthServiceServer(grpcServer, &authServer{})
+	// Регистрируем gRPC сервер с реализацией, которая использует сервис
+	authServer := &api.GrpcAuthServer{Service: authService}
+	auth2.RegisterAuthServiceServer(grpcServer, authServer)
 
 	reflection.Register(grpcServer)
 
