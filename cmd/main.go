@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 	"log"
 	"module4-task1/internal/logger"
@@ -16,13 +18,28 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
+func buildDSN() string {
+	host := os.Getenv("DB_HOST")
+	port := os.Getenv("DB_PORT")
+	user := os.Getenv("DB_USER")
+	password := os.Getenv("DB_PASSWORD")
+	dbname := os.Getenv("DB_NAME")
+	sslmode := os.Getenv("DB_SSLMODE")
+
+	return fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		host, port, user, password, dbname, sslmode,
+	)
+}
+
 func main() {
 	// Получаем DSN из переменной окружения или укажи напрямую
-	dsn := os.Getenv("POSTGRES_DSN")
-	if dsn == "" {
-		log.Fatal("POSTGRES_DSN environment variable not set")
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("failed to load .env file")
 	}
 
+	dsn := buildDSN()
 	// Подключаемся к БД
 	db, err := repo.NewPostgres(dsn)
 	if err != nil {
@@ -36,7 +53,12 @@ func main() {
 	authService := service.NewAuthService(userRepo)
 
 	// Настраиваем gRPC сервер
-	lis, err := net.Listen("tcp", ":50051")
+	port := os.Getenv("GRPC_PORT")
+	if port == "" {
+		log.Fatal("GRPC_PORT not set")
+	}
+
+	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
