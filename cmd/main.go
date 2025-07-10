@@ -33,29 +33,26 @@ func buildDSN() string {
 }
 
 func main() {
-	// Получаем DSN из переменной окружения или укажи напрямую
+
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("failed to load .env file")
 	}
 
 	dsn := buildDSN()
-	// Подключаемся к БД
+
 	db, err := repo.NewPostgres(dsn)
 	if err != nil {
-		log.Fatalf("failed to connect to db: %v", err)
+		logger.Log.Info("Failed to connect to database", zap.Error(err))
 	}
 
-	// Создаём репозиторий пользователей
 	userRepo := repo.NewUserRepository(db)
 
-	// Создаём сервис аутентификации
 	authService := service.NewAuthService(userRepo)
 
-	// Настраиваем gRPC сервер
 	port := os.Getenv("GRPC_PORT")
 	if port == "" {
-		log.Fatal("GRPC_PORT not set")
+		log.Fatal("GRPC_PORT environment variable not set")
 	}
 
 	lis, err := net.Listen("tcp", ":"+port)
@@ -65,7 +62,6 @@ func main() {
 
 	grpcServer := grpc.NewServer()
 
-	// Регистрируем gRPC сервер с реализацией, которая использует сервис
 	authServer := &api.GrpcAuthServer{Service: authService}
 	auth2.RegisterAuthServiceServer(grpcServer, authServer)
 
