@@ -29,3 +29,7 @@ func (s *GrpcAuthServer) Login(ctx context.Context, req *auth.LoginRequest) (*au
 	}
 	return &auth.LoginResponse{Token: token}, nil
 }
+
+func (s *GrpcAuthServer) Validate(ctx context.Context, req *auth.ValidateRequest) (*auth.ValidateResponse, error) {
+	return s.Service.Validate(ctx, req)
+}
